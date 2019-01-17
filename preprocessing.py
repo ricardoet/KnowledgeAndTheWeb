@@ -40,7 +40,7 @@ words_list = [i.split() for i in flat_sentences]
 words_filtered = [[word for word in words_ if word.lower() not in stopwords.words('spanish')] for words_ in words_list]
 
 # Greater or equal to 7
-index0 = [x >= 7 for x in [len(y) for y in words_filtered]]
+index0 = [((x>=7) and (x<=55)) for x in [len(y) for y in words_filtered]]
 long_sentences = list(itertools.compress(flat_sentences, index0))
 
 # Create Dataset of long sentences
