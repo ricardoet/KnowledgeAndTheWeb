@@ -1,13 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Oct 30 12:25:54 2018
-
-@author: orteg
-"""
 from spacy.lang.es import Spanish
 import pandas as pd
 import os
-os.chdir("C:/Users/orteg/Dropbox/ArchOrg/1Almacen/EMDS/Computacion/3 Cursos/KUL Knowledge and the Web/Project")
+#os.chdir("C:/Users/orteg/Dropbox/ArchOrg/1Almacen/EMDS/Computacion/3 Cursos/KUL Knowledge and the Web/Project")
 import itertools
 from nltk.corpus import stopwords
 from nltk.tokenize import sent_tokenize
@@ -36,6 +30,10 @@ sentences = [sent_tokenize(i) for i in data.dropna().tolist()]
 # Flat a nested Python List & remove whitespaces (leading and trailing)
 flat_sentences = [item for items in sentences for item in items]
 flat_sentences = [item.strip() for item in flat_sentences]
+
+for i in range(len(flat_sentences)):
+    flat_sentences[i] = flat_sentences[i].split('): ')[-1]
+    #line = line.split('. ')[:-1]
 
 # Filter 
 words_list = [i.split() for i in flat_sentences]

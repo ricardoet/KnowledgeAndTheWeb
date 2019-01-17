@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Dec 25 23:00:34 2018
-
-@author: orteg
-"""
 import numpy as np
 import pandas as pd
 import urllib3
@@ -12,19 +6,23 @@ try:
 except ImportError:
      from bs4 import BeautifulSoup
 http = urllib3.PoolManager()
-url = 'http://cronica.diputados.gob.mx/Estenografia/64/2018/oct/20181016.html'
-response = http.request('GET', url)
-parse_html = BeautifulSoup(response.data)
-array_par = parse_html.body.find_all('p')
-
-#
 names  = []
 speech  = []
-for par in array_par:
-     par_bold = par.find('b')
-     if par_bold : 
-          names.append(par_bold.text)
-          speech.append(par.text.replace(par_bold.text,''))
+with open('urls.txt') as file:
+    array_url = file.readlines()
+    array_url = [x.strip() for x in array_url]
+
+#array_url = ['http://cronica.diputados.gob.mx/Estenografia/64/2018/ago/20180829.html', 'http://cronica.diputados.gob.mx/Estenografia/64/2018/sep/20180906.html']
+for url in array_url:
+    response = http.request('GET', url)
+    parse_html = BeautifulSoup(response.data, 'lxml')
+    array_par = parse_html.body.find_all('p')
+    
+    for par in array_par:
+         par_bold = par.find('b')
+         if par_bold : 
+              names.append(par_bold.text)
+              speech.append(par.text.replace(par_bold.text,''))
           
 #  Create dataframes
 df_names = {'names': names}
