@@ -2,6 +2,10 @@
 """
 Created on Tue Dec  4 03:28:06 2018
 * Code from https://github.com/orico/ActiveLearningFrameworkTutorial/blob/master/Active_Learning_Tutorial.ipynb
+1 ca
+2 cs
+3 na
+4 us
 
 @author: Carlos Ortega
 """
@@ -12,9 +16,9 @@ Created on Tue Dec  4 03:28:06 2018
 # Install and Import requirements, Also set the directory
 import os
 os.chdir("C:/Users/orteg/Dropbox/ArchOrg/1Almacen/EMDS/Computacion/3 Cursos/KUL Knowledge and the Web/Project")
+import pickle
 
 # from pylab import rcParams
-
 from sklearn.datasets import load_digits
 from sklearn.datasets import fetch_mldata
 from sklearn.decomposition import PCA
@@ -55,7 +59,7 @@ stopwords = stopwords.words('spanish')
 # Local modules
 from helper import FeatureSelector, ArrayCaster
 from active_learner import BaseModel, LogModel, RfModel, SvmModel, TrainModel, \
-Normalize, BaseSelectionFunction, EntropySelection, get_k_random_samples, \
+BaseSelectionFunction, EntropySelection, get_k_random_samples, \
 TheAlgorithm, experiment
 
 #### LOADING DATASET & DATA SPLITTING ####
@@ -79,8 +83,24 @@ xarray_labelled_train = np.array(x_labelled_train).ravel()
 xarray_labelled_test = np.array(x_labelled_test).ravel()
 xarray_unlabelled = np.array(x_unlabelled).ravel()
 
-y_train = np.array(y_labelled_train)
-y_test = np.array(y_labelled_test)
+# Transforming number labels to string ones
+conditions = [
+    y_labelled_test['label'] == 1,
+    y_labelled_test['label'] == 2,
+    y_labelled_test['label'] == 3,
+    y_labelled_test['label'] == 4
+    ]
+conditions2 = [
+    y_labelled_train['label'] == 1,
+    y_labelled_train['label'] == 2,
+    y_labelled_train['label'] == 3,
+    y_labelled_train['label'] == 4
+    ]
+choices = ['ca', 'cs', 'na','us']
+np.select(conditions, ['ca', 'cs', 'na','us'])
+
+y_test = np.array(np.select(conditions, ['ca', 'cs', 'na','us']))
+y_train = np.array(np.select(conditions2, ['ca', 'cs', 'na','us']))
 
 ############################
 ####  FEATURE PIPELINE   ###
@@ -124,26 +144,28 @@ models = [SvmModel]
 selection_functions = [EntropySelection]
 Ks = [5] 
 d = {}
-stopped_at = -1 
+stopped_at = -1
 
-d = experiment(d, models, selection_functions, Ks, repeats, stopped_at+1, \
+d, model_trained = experiment(d, models, selection_functions, Ks, repeats, stopped_at+1, \
                xl_train_trans, xl_test_trans, y_train, y_test, xu_train_trans, x_unlabelled)
 print (d)
 results = json.loads(json.dumps(d, indent=2, sort_keys=True))
 print(results)
 
-####
-
-alg1 = TheAlgorithm(5,SvmModel,EntropySelection)
-alg1.run(xl_train_trans, xl_test_trans, y_train, y_test, xu_train_trans, x_unlabelled)
-
-###
+# Save model
+filename_trained_model = 'trained_model.sav'
+pickle.dump(model_trained, open(filename_trained_model, 'wb'))
 
 
+# load the model from disk
+loaded_model = pickle.load(open(filename_trained_model, 'rb'))
 
-# TRAIN MODEL AND APPLY 10 FOLD CROSSVALIDATION FOR EVALUATION
-feature_pipe_SVM.fit(x_labelled_train,y_labelled_train)
-predicted = cross_val_predict(feature_pipe_SVM,
-                              x_labelled_train,
-                              y_labelled_train,
-                              cv=10)
+
+# alg1 = TheAlgorithm(5,SvmModel,EntropySelection)
+# alg1.run(xl_train_trans, xl_test_trans, y_train, y_test, xu_train_trans, x_unlabelled)
+# TODO - TRAIN MODEL AND APPLY 10 FOLD CROSSVALIDATION FOR EVALUATION
+#feature_pipe_SVM.fit(x_labelled_train,y_labelled_train)
+#predicted = cross_val_predict(feature_pipe_SVM,
+#                              x_labelled_train,
+#                              y_labelled_train,
+#                              cv=10)
