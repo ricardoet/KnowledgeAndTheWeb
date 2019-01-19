@@ -4,11 +4,13 @@ Created on Sun Dec 30 14:48:40 2018
 
 @author: Carlos Ortega
 """
+# Built in Modules
 import os
 import sys
 import time
 import json
-import pickle
+
+# Third Party Modules
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -39,6 +41,7 @@ from scipy.sparse import vstack, csr_matrix
 
 np.set_printoptions(threshold=sys.maxsize)
 max_queried = 10
+
 #### AVAILABLE MODELS ####
 class BaseModel(object):
 
@@ -117,10 +120,8 @@ class TrainModel:
         return (X_train, X_val, X_labelled_test)  # we return them in case we use PCA, with all the other algorithms, this is not needed.
 
     # we want fscore only for the test set
-
     def get_test_fscore(self, i, y_test, beta = 1):
-        classif_rate = fbeta_score(y_test.ravel(), self.test_y_predicted.ravel(), beta, \
-                                   average = 'micro')
+        classif_rate = fbeta_score(y_test.ravel(), self.test_y_predicted.ravel(), beta, pos_label='cs', average ='micro')
         self.fscores.append(classif_rate)               
         print('--------------------------------')
         print('Iteration:',i)
@@ -130,23 +131,7 @@ class TrainModel:
         print("F-Score rate for %f with beta %f" % (classif_rate, beta))    
         print("Classification report for classifier %s:\n%s\n" % (self.model_object.classifier, metrics.classification_report(y_test, self.test_y_predicted)))
         print("Confusion matrix:\n%s" % metrics.confusion_matrix(y_test, self.test_y_predicted))
-        print('--------------------------------')
-        
-# Normalizer
-class Normalize(object):
-    
-    def normalize(self, X_train, X_val, X_labelled_test):
-        self.scaler = MinMaxScaler()
-        X_train = self.scaler.fit_transform(X_train)
-        X_val   = self.scaler.transform(X_val)
-        X_labelled_test  = self.scaler.transform(X_labelled_test)
-        return (X_train, X_val, X_labelled_test) 
-    
-    def inverse(self, X_train, X_val, X_labelled_test):
-        X_train = self.scaler.inverse_transform(X_train)
-        X_val   = self.scaler.inverse_transform(X_val)
-        X_labelled_test  = self.scaler.inverse_transform(X_labelled_test)
-        return (X_train, X_val, X_labelled_test)
+        print('--------------------------------')   
 
 #### SAMPLING ACTIVE LEARNING METHODS ####
 class BaseSelectionFunction(object):
@@ -244,11 +229,6 @@ class TheAlgorithm(object):
         print ('test set:', X_labelled_test.shape, y_test.shape)
         print ()
 
-        # normalize data
-
-        #normalizer = Normalize()
-        #X_labelled_train, X_val, X_labelled_test = normalizer.normalize(X_labelled_train, X_val, X_labelled_test)   
-        
         self.clf_model = TrainModel(self.model_object)
         (X_labelled_train, X_val, X_labelled_test) = self.clf_model.train(X_labelled_train, y_train, X_val, X_labelled_test, 'balanced')
         active_iteration = 1
@@ -270,11 +250,6 @@ class TheAlgorithm(object):
             # select samples using a selection function
 
             uncertain_samples = self.sample_selection_function.select(probas_val, self.initial_labeled_samples)
-
-            # normalization needs to be inversed and recalculated based on the new train and test set.
- 
-            #  X_labelled_train, X_val, X_labelled_test = normalizer.inverse(X_labelled_train, X_val, X_labelled_test)   
-
             print ('trainset before', X_labelled_train.shape, y_train.shape)
             X_labelled_train = vstack([X_labelled_train, X_val[uncertain_samples]])
             print('these id are asked by machine, please check them')
@@ -282,6 +257,7 @@ class TheAlgorithm(object):
             oracle_sentence = np.array(X_valref.sentence[uncertain_samples])
             y_aux = []
             print('START QUERYING')
+            print('--------------------------------')
             print()
             for s in range(len(oracle_sentence)):
               print(oracle_sentence[s])
@@ -306,24 +282,23 @@ class TheAlgorithm(object):
             print ('val set:', X_val.shape)
             X_val = del_rows_sparse(X_val, uncertain_samples)
             print ('val set before next iteration:', X_val.shape)
-            print ()
-
-            # normalize again after creating the 'new' train/test sets
-            #normalizer = Normalize()
-            #X_train, X_val, X_labelled_test = normalizer.normalize(X_train, X_val, X_labelled_test)               
+            print ()      
 
             self.queried += self.initial_labeled_samples
             print(X_labelled_train.shape, y_train.shape, X_val.shape, X_labelled_test.shape)
             (X_labelled_train, X_val, X_labelled_test) = self.clf_model.train(X_labelled_train, y_train, X_val, X_labelled_test, 'balanced')
+            # Get the F-score 
             self.clf_model.get_test_fscore(active_iteration, y_test)
 
         print ('final active learning fscores',
                self.clf_model.fscores)
+        return self.clf_model
 
 # Trigger Function
 def experiment(d, models, selection_functions, Ks, repeats, contfrom, X_labelled_train, \
                X_labelled_test, y_train, y_test, X_val, X_valref):
     print ('stopping at:', max_queried)
+    models_trained = [None]*len(Ks)*len(selection_functions)*len(models)*repeats
     count = 0
     for model_object in models:
       if model_object.__name__ not in d:
@@ -338,17 +313,20 @@ def experiment(d, models, selection_functions, Ks, repeats, contfrom, X_labelled
             
             for i in range(0, repeats):
                 count+=1
+                count2 = count - 1
                 if count >= contfrom:
                     print ('Count = %s, using model = %s, selection_function = %s, k = %s, iteration = %s.' % (count, model_object.__name__, selection_function.__name__, k, i))
                     alg = TheAlgorithm(k, 
                                        model_object, 
                                        selection_function
                                        )
-                    alg.run(X_labelled_train, X_labelled_test, y_train, y_test, X_val, X_valref)
+                    
+                    models_trained[count2] = alg.run(X_labelled_train, X_labelled_test, y_train, y_test, X_val, X_valref)
+                    models_trained[count2] = models_trained[count2].model_object.classifier
                     d[model_object.__name__][selection_function.__name__][str(k)].append(alg.clf_model.fscores)
                     if count % 5 == 0:
                         print(json.dumps(d, indent=2, sort_keys=True))
                     print ()
                     print ('---------------------------- FINISHED ---------------------------')
                     print ()
-    return d
+    return d, models_trained
