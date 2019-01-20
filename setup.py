@@ -153,13 +153,17 @@ results = json.loads(json.dumps(d, indent=2, sort_keys=True))
 print(results)
 
 # Save model
-filename_trained_model = 'trained_model.sav'
-pickle.dump(model_trained, open(filename_trained_model, 'wb'))
+tuple_model_features = (model_trained, features)
+joblib.dump(tuple_model_features, 'model_features.pkl')
 
+# Load from file
+tuple_model_features = joblib.load('model_features.pkl')
 
-# load the model from disk
-loaded_model = pickle.load(open(filename_trained_model, 'rb'))
+# Example using unlabelled sentences for checking if the loaded model works
+xu_train_trans = tuple_model_features[1].transform(x_unlabelled)
 
+# Give Probabilities instead of Class
+tuple_model_features[0][0].predict_proba(xu_train_trans)
 
 # alg1 = TheAlgorithm(5,SvmModel,EntropySelection)
 # alg1.run(xl_train_trans, xl_test_trans, y_train, y_test, xu_train_trans, x_unlabelled)
