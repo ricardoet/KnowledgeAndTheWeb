@@ -97,10 +97,10 @@ conditions2 = [
     y_labelled_train['label'] == 4
     ]
 choices = ['ca', 'cs', 'na','us']
-np.select(conditions, ['ca', 'cs', 'na','us'])
+np.select(conditions, choices)
 
-y_test = np.array(np.select(conditions, ['ca', 'cs', 'na','us']))
-y_train = np.array(np.select(conditions2, ['ca', 'cs', 'na','us']))
+y_test = np.array(np.select(conditions, choices))
+y_train = np.array(np.select(conditions2, choices))
 
 ############################
 ####  FEATURE PIPELINE   ###
