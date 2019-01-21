@@ -40,7 +40,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from scipy.sparse import vstack, csr_matrix
 
 np.set_printoptions(threshold=sys.maxsize)
-max_queried = 10
+max_queried = 100
 
 #### AVAILABLE MODELS ####
 class BaseModel(object):
@@ -241,12 +241,14 @@ class TheAlgorithm(object):
               print()
               print('--INTRODUCE GROUND TRUTH LABELS---')
               y_aux.append(input())
-              print(s,len(oracle_sentence))
+              print('Answered Question %s out of %s' % (s+1,len(oracle_sentence)))
               if (s < len(oracle_sentence)-1):
                 print('----------NEXT QUESTION---------')
               
             print()
+            print('--------------------------------')
             print('END QUERYING')
+            print('--------------------------------')
             # TODO: Write a try catch error if the dimensions of y_aux doesn't correspond to X_val
             y_aux = np.array(y_aux)
             y_train = np.concatenate((y_train, y_aux))
