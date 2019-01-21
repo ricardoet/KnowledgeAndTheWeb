@@ -56,7 +56,7 @@ class LogModel(BaseModel):
     model_type = 'Multinominal Logistic Regression' 
     
     def fit_predict(self, X_train, y_train, X_val, X_labelled_test, c_weight):
-        print ('training multinomial logistic regression')
+        print ('Training Multinomial Logistic Regression')
         train_samples = X_train.shape[0]
         self.classifier = LogisticRegression(
             C=50. / train_samples,
@@ -76,7 +76,7 @@ class RfModel(BaseModel):
     model_type = 'Random Forest'
     
     def fit_predict(self, X_train, y_train, X_val, X_labelled_test, c_weight):
-        print ('training random forest...')
+        print ('Training Random Forest...')
         self.classifier = RandomForestClassifier(n_estimators=500, class_weight=c_weight)
         self.classifier.fit(X_train, y_train)
         self.test_y_predicted = self.classifier.predict(X_labelled_test)
@@ -87,9 +87,8 @@ class SvmModel(BaseModel):
 
     model_type = 'Support Vector Machine with linear Kernel'
     def fit_predict(self, X_train, y_train, X_val, X_labelled_test, c_weight):
-        print ('training svm...')
-        self.classifier = SVC(C=1, kernel='linear', probability=True,
-                              class_weight=c_weight)
+        print ('Training SVM...')
+        self.classifier = SVC(C=1, kernel='linear', probability=True, class_weight=c_weight)
         self.classifier.fit(X_train, y_train)
         self.test_y_predicted = self.classifier.predict(X_labelled_test)
         self.val_y_predicted = self.classifier.predict(X_val)
@@ -109,7 +108,7 @@ class TrainModel:
     # we train normally and get probabilities for the validation set. i.e., we use the probabilities to select the most uncertain samples
 
     def train(self, X_train, y_train, X_val, X_labelled_test, c_weight):
-        print ('Train set:', X_train.shape, 'y:', y_train.shape)
+        print ('Train set:', X_train.shape)
         print ('Val   set:', X_val.shape)
         print ('Test  set:', X_labelled_test.shape)
         t0 = time.time()
@@ -120,15 +119,14 @@ class TrainModel:
         return (X_train, X_val, X_labelled_test)  # we return them in case we use PCA, with all the other algorithms, this is not needed.
 
     # we want fscore only for the test set
-    def get_test_fscore(self, i, y_test, beta = 1):
-        classif_rate = fbeta_score(y_test.ravel(), self.test_y_predicted.ravel(), beta, pos_label='cs', average ='micro')
+    def get_test_fscore(self, i, y_test, beta = 0.5):
+        classif_rate = fbeta_score(y_test.ravel(), self.test_y_predicted.ravel(), beta, pos_label='cs', average ='binary')
         self.fscores.append(classif_rate)               
         print('--------------------------------')
         print('Iteration:',i)
         print('--------------------------------')
-        print('y-test set:',y_test.shape)
         print('Example run in %.3f s' % self.run_time,'\n')
-        print("F-Score rate for %f with beta %f" % (classif_rate, beta))    
+        print("F-Score rate for %.3f with beta %.2f" % (classif_rate, beta))    
         print("Classification report for classifier %s:\n%s\n" % (self.model_object.classifier, metrics.classification_report(y_test, self.test_y_predicted)))
         print("Confusion matrix:\n%s" % metrics.confusion_matrix(y_test, self.test_y_predicted))
         print('--------------------------------')   
@@ -166,31 +164,6 @@ class MarginSamplingSelection(BaseSelectionFunction):
         selection = np.argsort(values)[:initial_labeled_samples]
         return selection
 
-# Retriever of the sampling technique
-def get_k_random_samples(initial_labeled_samples, X_labelled_train,y_train):
-    random_state = check_random_state(0)
-    random_state
-    permutation = np.random.choice(len(X_labelled_train),
-                                   initial_labeled_samples,
-                                   replace=False)
-    print ()
-    print ('initial random chosen samples', permutation.shape),
-#            permutation)
-    X_train = X_labelled_train[permutation]
-    y_train = y_train[permutation]
-    X_train = X_train.reshape((X_train.shape[0], -1))
-    bin_count = np.bincount(y_train.astype('int64'))
-    unique = np.unique(y_train.astype('int64'))
-    print (
-        'initial train set:',
-        X_train.shape,
-        y_train.shape,
-        'unique(labels):',
-        bin_count,
-        unique,
-        )
-    return (permutation, X_train, y_train)
-
 # Row Deletion for Sparse Matrix
 def del_rows_sparse(mat, indices):
     """
@@ -215,6 +188,7 @@ class TheAlgorithm(object):
 
     def run(self, X_labelled_train, X_labelled_test, y_train, y_test, X_val, X_valref):
         y_train = np.ravel(y_train)
+        X_valref = np.array(X_valref.sentence)
 
         # initialize process by applying base learner to labeled training data set to obtain Classifier
 
@@ -225,11 +199,13 @@ class TheAlgorithm(object):
         # permutation, X_train, y_train = get_equally_k_random_samples(self.initial_labeled_samples,classes)
 
         # assign the test set as part of the train labelled data
-
-        print ('test set:', X_labelled_test.shape, y_test.shape)
         print ()
+        print ('Test set:', X_labelled_test.shape)
+        # TODO - Implement some Handling Exceptions that prevents to use not fitting matrices
 
         self.clf_model = TrainModel(self.model_object)
+        # TODO - TRAIN MODEL AND APPLY 10 FOLD CROSSVALIDATION FOR EVALUATION, SO NOT FOR PREDICTION AS FACTRANK DID
+
         (X_labelled_train, X_val, X_labelled_test) = self.clf_model.train(X_labelled_train, y_train, X_val, X_labelled_test, 'balanced')
         active_iteration = 1
         self.clf_model.get_test_fscore(1, y_test)
@@ -244,54 +220,57 @@ class TheAlgorithm(object):
                    self.clf_model.val_y_predicted.shape,
                    self.clf_model.val_y_predicted[0:10])
             print(probas_val[0:10])
+            print()
             print ('First ten instances\' probabilities:', probas_val.shape, '\n',
                    np.amax(probas_val, axis=1)[0:10])
+            print()
 
             # select samples using a selection function
 
             uncertain_samples = self.sample_selection_function.select(probas_val, self.initial_labeled_samples)
-            print ('trainset before', X_labelled_train.shape, y_train.shape)
+            print ('Training Set before Querying: %s where y: %s' % (X_labelled_train.shape, y_train.shape))
             X_labelled_train = vstack([X_labelled_train, X_val[uncertain_samples]])
-            print('these id are asked by machine, please check them')
             print('--------------------------------')
-            oracle_sentence = np.array(X_valref.sentence[uncertain_samples])
+            oracle_sentence = np.array(X_valref[uncertain_samples])
             y_aux = []
             print('START QUERYING')
             print('--------------------------------')
             print()
             for s in range(len(oracle_sentence)):
               print(oracle_sentence[s])
-              print('--------------------------------')
-              print('please introduce the ground truth labels')
+              print()
+              print('--INTRODUCE GROUND TRUTH LABELS---')
               y_aux.append(input())
+              print(s,len(oracle_sentence))
+              if (s < len(oracle_sentence)-1):
+                print('----------NEXT QUESTION---------')
+              
             print()
             print('END QUERYING')
-            y_aux = np.array(y_aux)
             # TODO: Write a try catch error if the dimensions of y_aux doesn't correspond to X_val
+            y_aux = np.array(y_aux)
             y_train = np.concatenate((y_train, y_aux))
-            print ('trainset after', X_labelled_train.shape, y_train.shape)
-            self.samplecount.append(X_labelled_train.shape[0])
-            
-            labels, counts = np.unique(y_train, return_counts=True)
+            print ('Training Set after Querying: %s where y: %s' % (X_labelled_train.shape, y_train.shape))
             print()
-            print(
-                'updated train set:',
-                X_labelled_train.shape,
-                y_train.shape)
+            self.samplecount.append(X_labelled_train.shape[0])
+            labels, counts = np.unique(y_train, return_counts=True)
             print(dict(zip(labels, counts)))
-            print ('val set:', X_val.shape)
+            print('Counts per Label in Traning Set after Querying')
+            print()
+            print('Unlabelled Pool before Querying: %s' % (X_val.shape,))
             X_val = del_rows_sparse(X_val, uncertain_samples)
-            print ('val set before next iteration:', X_val.shape)
-            print ()      
-
+            X_valref = np.delete(X_valref, uncertain_samples, 0)
+            print('Unlabelled Pool after Querying: %s' % (X_val.shape,))
+            print()
+            print ('Queried Instances so far: %d' % self.queried)
             self.queried += self.initial_labeled_samples
-            print(X_labelled_train.shape, y_train.shape, X_val.shape, X_labelled_test.shape)
+            print()
+            print('New Train Iteration')
             (X_labelled_train, X_val, X_labelled_test) = self.clf_model.train(X_labelled_train, y_train, X_val, X_labelled_test, 'balanced')
             # Get the F-score 
             self.clf_model.get_test_fscore(active_iteration, y_test)
 
-        print ('final active learning fscores',
-               self.clf_model.fscores)
+        print ('Final F-scores', self.clf_model.fscores)
         return self.clf_model
 
 # Trigger Function
